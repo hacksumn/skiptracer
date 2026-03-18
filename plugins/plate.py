@@ -1,82 +1,126 @@
 from __future__ import absolute_import, print_function
-from time import sleep
+#
+# License plate lookup — faxvin.com for plate→VIN, NHTSA free API for VIN decode
+# NHTSA API: https://vpic.nhtsa.dot.gov/api/ (US Government, free, no key needed)
+#
 import re
-
+import requests
 from plugins.base import PageGrabber
-
-from .colors import BodyColors as bc
+from plugins.colors import BodyColors as bc
 
 try:
     import __builtin__ as bi
 except ImportError:
     import builtins as bi
 
-class VinGrabber(PageGrabber):  # faxvin.com scraper for plate lookups
-    def get_info(self, plate):  # returns information about given plate number
-        print("["+bc.CPRP+"?"+bc.CEND+"] "+bc.CCYN + "FaxVin" + bc.CEND)
-        state = input("  ["+bc.CRED+"!"+bc.CEND+"] "+bc.CYLW+ "Please enter 2 letter abbreviated state - ex: (AL=Alabama|CO=Colorado) "+bc.CEND).upper()
-        plate = plate.upper()
-        url = 'https://www.faxvin.com/license-plate-lookup/result?plate={}&state={}'.format(plate,state)
-        #print("URL generated: %s" %url)
-        try:
-         source = self.get_source(url)
-         sleep(0.5)
-         soup = self.get_html(source)
-         sleep(0.5)
-        except Exception as e:
-         print("Fault: %s" % e)
-        #print("Soup returned: %s" % soup)
-        if soup.body.find_all(string=re.compile('.*{0}.*'.format('Sorry, the plate your currently looking for is not available.')), recursive=True):
-            print ("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"No plate found.\n"+bc.CEND)
-            return
-        try:
-            table = soup.find('table', attrs={'class': 'tableinfo'})
-        except:
-            print ("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"No source returned, try again later ...\n"+bc.CEND)
-            return
-        try:
-            cells = table.findAll("td")
-        except:
-            print ("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"No results were found ...\n"+bc.CEND)
-            return
-        vin = cells[0].b.text
-        make = cells[1].b.text
-        model = cells[2].b.text
-        year = cells[3].b.text
-        trim = cells[4].b.text
-        style = cells[5].b.text
-        engine = cells[6].b.text
-        plant = cells[7].b.text
-        age = cells[8].b.text
-        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Plate: "+bc.CEND+ str(plate))
-        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"State: "+bc.CEND+ str(state))
-        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"VIN: "+bc.CEND+ str(vin))
-        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Make: "+bc.CEND+ str(make))
-        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Model: "+bc.CEND+ str(model))
-        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Year: "+bc.CEND+ str(year))
-        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Trim: "+bc.CEND+ str(trim))
-        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Style: "+bc.CEND+ str(style))
-        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Engine: "+bc.CEND+ str(engine))
-        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Plant: "+bc.CEND+ str(plant))
-        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Age: "+bc.CEND+ str(age))
+NHTSA_URL = 'https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/{}?format=json'
 
-        self.info_dict.update({
-            "plate": plate,
-            "state": state,
-            "vin": vin,
-            "make": make,
-            "model": model,
-            "year": year,
-            "trim": trim,
-            "style": style,
-            "engine": engine,
-            "plant": plant,
-            "age": age
-        })
-        bi.outdata['faxvin'] = self.info_dict
-        if len(self.info_dict) == 0:
-            print ("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"No source returned, try again later ...\n"+bc.CEND)
+# NHTSA fields we care about
+NHTSA_FIELDS = [
+    ('Make',            'Make'),
+    ('Model',           'Model'),
+    ('Model Year',      'ModelYear'),
+    ('Body Class',      'BodyClass'),
+    ('Vehicle Type',    'VehicleType'),
+    ('Drive Type',      'DriveType'),
+    ('Fuel Type',       'FuelTypePrimary'),
+    ('Engine Size',     'DisplacementL'),
+    ('Cylinders',       'EngineCylinders'),
+    ('Engine HP',       'EngineHP'),
+    ('Transmission',    'TransmissionStyle'),
+    ('Doors',           'Doors'),
+    ('Seats',           'SeatRows'),
+    ('Series',          'Series'),
+    ('Trim',            'Trim'),
+    ('Plant Country',   'PlantCountry'),
+    ('Manufacturer',    'Manufacturer'),
+]
+
+US_STATES = [
+    'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN',
+    'IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV',
+    'NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN',
+    'TX','UT','VT','VA','WA','WV','WI','WY','DC',
+]
+
+
+def _decode_vin(vin):
+    """Decode a VIN using the free NHTSA API. Returns dict of vehicle data."""
+    try:
+        resp = requests.get(NHTSA_URL.format(vin), timeout=12)
+        data = resp.json()
+        results = data.get('Results', [{}])[0]
+        return results
+    except Exception:
+        return {}
+
+
+def _find_vin_in_page(text):
+    """Extract a 17-character VIN from raw page text."""
+    matches = re.findall(r'\b[A-HJ-NPR-Z0-9]{17}\b', text)
+    return matches[0] if matches else None
+
+
+class VinGrabber(PageGrabber):
+    def get_info(self, plate):
+        print("["+bc.CPRP+"?"+bc.CEND+"] "+bc.CCYN+"License Plate Lookup"+bc.CEND)
+
+        while True:
+            state = input("  ["+bc.CRED+"!"+bc.CEND+"] "+bc.CYLW +
+                          "Enter 2-letter state abbreviation [ex: FL, CA, TX]: " +
+                          bc.CEND).strip().upper()
+            if state in US_STATES:
+                break
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"Invalid state. Use 2-letter abbreviation (e.g. FL)."+bc.CEND)
+
+        plate = str(plate).upper().strip()
+        print("  ["+bc.CBLU+"~"+bc.CEND+"] "+bc.CYLW+"Searching plate {} / {}...".format(plate, state)+bc.CEND)
+
+        vin = None
+
+        # --- Attempt 1: faxvin.com ---
+        try:
+            faxvin_url = 'https://www.faxvin.com/license-plate-lookup/result?plate={}&state={}'.format(plate, state)
+            source = self.get_source(faxvin_url)
+            if source:
+                vin = _find_vin_in_page(source)
+                if vin:
+                    print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"VIN extracted: "+bc.CEND+vin)
+        except Exception:
+            pass
+
+        # --- Attempt 2: ask user to supply VIN manually ---
+        if not vin:
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW +
+                  "Automated VIN lookup unavailable (sites require JavaScript)." + bc.CEND)
+            manual = input("  ["+bc.CRED+"?"+bc.CEND+"] "+bc.CYLW +
+                           "Enter VIN manually to decode via NHTSA (or press Enter to skip): " +
+                           bc.CEND).strip().upper()
+            if manual and len(manual) == 17:
+                vin = manual
+            else:
+                print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"No VIN provided. Skipping decode.\n"+bc.CEND)
+                return
+
+        # --- Decode VIN via NHTSA free government API ---
+        print("  ["+bc.CBLU+"~"+bc.CEND+"] "+bc.CYLW+"Decoding VIN via NHTSA API (free)..."+bc.CEND)
+        vehicle = _decode_vin(vin)
+
+        if not vehicle or vehicle.get('ErrorCode', '0') != '0':
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"NHTSA could not decode this VIN.\n"+bc.CEND)
             return
-        else:
-            print()
-            return
+
+        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Plate: "+bc.CEND+plate)
+        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"State: "+bc.CEND+state)
+        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"VIN:   "+bc.CEND+vin)
+
+        result = {'plate': plate, 'state': state, 'vin': vin}
+        for label, key in NHTSA_FIELDS:
+            val = vehicle.get(key, '').strip()
+            if val and val != 'Not Applicable':
+                print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"{}: ".format(label)+bc.CEND+val)
+                result[label.lower().replace(' ', '_')] = val
+
+        self.info_dict.update(result)
+        bi.outdata['plate_lookup'] = self.info_dict
+        print()

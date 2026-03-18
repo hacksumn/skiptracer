@@ -1,103 +1,111 @@
-"""Whocallid.com search module"""
+"""Whocalld.com reverse phone lookup"""
 from __future__ import print_function
 from __future__ import absolute_import
 
 import re
-import logging
 from plugins.base import PageGrabber
-from .colors import BodyColors as bc
+from plugins.colors import BodyColors as bc
+
 try:
     import __builtin__ as bi
-except:
+except ImportError:
     import builtins as bi
 
-class WhoCallIdGrabber(PageGrabber):  # WhoCallID sales scraper for reverse telephone lookups
-    def get_info(self, phone_number):  # Request, scrape and return values found
-        print("["+bc.CPRP+"?"+bc.CEND+"] "+bc.CCYN + "WhoCalld" + bc.CEND)
-        url = 'https://whocalld.com/+1{}'.format(phone_number)
-        source = self.get_source(url)
-        soup = self.get_dom(source)
-        if soup.body.find_all(string=re.compile('.*{0}.*'.format('country')), recursive=True):
-            print ("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"No WhoCallID data returned\n"+bc.CEND)
+
+class WhoCallIdGrabber(PageGrabber):
+    def get_info(self, phone_number):
+        print("["+bc.CPRP+"?"+bc.CEND+"] "+bc.CCYN+"WhoCalld"+bc.CEND)
+
+        # Normalize phone number — strip non-digits
+        digits = re.sub(r'\D', '', str(phone_number))
+        if len(digits) == 11 and digits.startswith('1'):
+            digits = digits[1:]
+        if len(digits) != 10:
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"Invalid phone number format. Provide 10 digits.\n"+bc.CEND)
             return
+
+        url = 'https://whocalld.com/+1{}'.format(digits)
+        source = self.get_source(url)
+        if not source:
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"No response from WhoCalld.\n"+bc.CEND)
+            return
+
+        soup = self.get_dom(source)
+
+        # Updated selectors based on current site structure
+        phone_disp = ''
+        location = ''
+        carrier = ''
+        city = ''
+        state = ''
+        name = ''
+
         try:
-            name = soup.find('h2', attrs={'class': 'name'})
-            if name:
-                name = name.text.strip()
-                print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Name: "+bc.CEND+ str(name))
-            else:
-                name = "Unknown"
-        except:
+            # Phone number heading
+            h1 = soup.find('h1', class_='number')
+            if h1:
+                phone_disp = h1.get_text(strip=True)
+                print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Phone: "+bc.CEND+phone_disp)
+        except Exception:
             pass
+
         try:
-            location = soup.find('h3', attrs={'class': 'location'})
-            if location:
-                location = location.text.strip()
-                print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Location: "+bc.CEND+ str(location))
-            else:
-                location = "Unknown"
-        except:
+            # Location span
+            loc_tag = soup.find('span', class_='location')
+            if loc_tag:
+                location = loc_tag.get_text(strip=True)
+                print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Location: "+bc.CEND+location)
+        except Exception:
             pass
+
         try:
-            phone_type = soup.find("img").attrs['alt']
-            if phone_type:
-                phone_type = phone_type.strip()
-                print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Phone Type: "+bc.CEND+ str(phone_type))
-            else:
-                phone_type = "Unknown"
-        except:
+            # Carrier — appears after an h3 labelled "Carrier"
+            for h3 in soup.find_all('h3'):
+                if 'Carrier' in h3.get_text():
+                    sib = h3.find_next('span')
+                    if sib:
+                        carrier = sib.get_text(strip=True)
+                        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Carrier: "+bc.CEND+carrier)
+                    break
+        except Exception:
             pass
+
         try:
-            url = "https://whocalld.com/+1{}?carrier".format(phone_number)
-            source = self.get_source(url)
-            soup = self.get_dom(source)
-            carrier = soup.find('span', attrs={'class': 'carrier'})
-        except:
+            # Name (h2.name — legacy selector, keep as fallback)
+            name_tag = soup.find('h2', class_='name')
+            if name_tag:
+                name = name_tag.get_text(strip=True)
+                print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Name: "+bc.CEND+name)
+        except Exception:
             pass
+
         try:
-            if carrier:
-                carrier = carrier.text
-                print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Carrier: "+bc.CEND+ str(carrier))
-            else:
-                carrier = ""
-        except:
+            city_tag = soup.find('span', class_='city')
+            if city_tag:
+                city = city_tag.get_text(strip=True)
+                print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"City: "+bc.CEND+city)
+        except Exception:
             pass
+
         try:
-            city = soup.find('span', attrs={'class': 'city'})
-            if city:
-                city = city.text
-                print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"City: "+bc.CEND+ str(city))
-            else:
-                city = ""
-        except:
+            state_tag = soup.find('span', class_='state')
+            if state_tag:
+                state = state_tag.get_text(strip=True)
+                print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"State: "+bc.CEND+state)
+        except Exception:
             pass
-        try:
-            state = soup.find('span', attrs={'class': 'state'})
-            if state:
-                state = state.text
-                print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"State: "+bc.CEND+ str(state))
-            else:
-                state = ""
-        except:
-            pass
-        try:
-            time = soup.find('span', attrs={'class': 'time'})
-            if time:
-                time = time.text
-                print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Time: "+bc.CEND+ str(time))
-            else:
-                time = ""
-        except:
-            pass
+
+        if not any([phone_disp, location, carrier, name]):
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"No data returned for this number.\n"+bc.CEND)
+            return
+
         self.info_dict.update({
-            "carrier": carrier,
-            "city": city,
-            "location": location,
-            "name": name,
-            "phone_type": phone_type,
-            "state": state,
-            "time": time
+            'phone': phone_disp,
+            'location': location,
+            'carrier': carrier,
+            'name': name,
+            'city': city,
+            'state': state,
         })
         bi.outdata['whocallid'] = self.info_dict
         print()
-        return

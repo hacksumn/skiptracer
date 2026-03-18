@@ -353,8 +353,8 @@ to increase productivity while conducting a background investigation.
                 DatingChecker().get_info(bi.search_string)
             elif gselect == 3:
                 TinderGrabber().get_info(bi.search_string)
-        except Exception:
-            pass
+        except Exception as e:
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"Error: {}".format(e)+bc.CEND)
         input("\nPress ENTER to continue")
         self.datingmenu()
 

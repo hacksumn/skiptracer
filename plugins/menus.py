@@ -15,6 +15,7 @@ from plugins.reporter import ReportGenerator
 from plugins.username_check import UsernameChecker
 from plugins.breach_check import BreachChecker
 from plugins.github_lookup import GitHubLookup
+from plugins.dating_check import DatingChecker
 import json
 import os
 import sys
@@ -81,6 +82,17 @@ to increase productivity while conducting a background investigation.
   Format: ABC1234  (then prompted for state)
   Modules:
     - NHTSA VIN Decode: Free government API — make, model, year, engine, etc.
+
+:: DATING ::
+  Format: username (the alias used on the target platform)
+  Modules:
+    - Dating Check: Searches 28+ platforms concurrently — OkCupid, POF, Match,
+      eHarmony, Hinge, Feeld, Badoo, Zoosk, AdultFriendFinder, Ashley Madison,
+      FetLife, Seeking, Grindr, Scruff, Her, BeNaughty, MeetMe, Tagged, Reddit,
+      SilverSingles, OurTime, Skout, Yubo, Coffee Meets Bagel, and more
+    - Tinder: Tinder profile lookup (use Username menu)
+  Note: Tinder, Bumble, 3Fun, Hily, Happn are mobile-only apps with no public
+        profile URLs — they cannot be checked by username lookup.
 """)
             input("\nPress ENTER to continue")
             self.intromenu()
@@ -97,7 +109,8 @@ to increase productivity while conducting a background investigation.
         print('\t[{}3{}] {}Phone{}      - {}Search by telephone number{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
         print('\t[{}4{}] {}Domain{}     - {}Enumerate subdomains{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
         print('\t[{}5{}] {}Plate{}      - {}License plate / VIN decode{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
-        print('\t[{}6{}] {}Help{}       - {}Usage and module details{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}6{}] {}Dating{}     - {}Search dating platforms by username{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}7{}] {}Help{}       - {}Usage and module details{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
         print('\t[{}88{}] {}Report{}    - {}Generate DOCX report from session data{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
         print('\t[{}99{}] {}Exit{}      - {}Quit{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
         try:
@@ -108,8 +121,8 @@ to increase productivity while conducting a background investigation.
         if gselect == 99:
             sys.exit(0)
         dispatch = {1: self.emailmenu, 2: self.snmenu, 3: self.phonemenu,
-                    4: self.domainmenu, 5: self.platemenu, 6: self.helpmenu,
-                    88: self.repgen}
+                    4: self.domainmenu, 5: self.platemenu, 6: self.datingmenu,
+                    7: self.helpmenu, 88: self.repgen}
         if gselect in dispatch:
             try:
                 dispatch[gselect]()
@@ -305,6 +318,45 @@ to increase productivity while conducting a background investigation.
             pass
         input("\nPress ENTER to continue")
         self.domainmenu()
+
+    # ─────────────────────────────── DATING ───────────────────────────────
+
+    def datingmenu(self):
+        os.system('cls' if os.name == 'nt' else 'clear')
+        Logo().banner()
+        target = " — {}{}".format(bi.search_string, bc.CEND) if bi.search_string else ""
+        print(" [{}!{}] {}Dating platform search{}{}".format(bc.CYLW, bc.CEND, bc.CBLU, target, bc.CEND))
+        print('\t[{}1{}] {}All{}               - {}Run all dating modules{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}2{}] {}Dating Check{}       - {}Search 28+ platforms by username{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}3{}] {}Tinder{}             - {}Tinder profile lookup{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}4{}] {}Reset Target{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
+        print('\t[{}5{}] {}Back{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
+        try:
+            gselect = int(input(" [{}!{}] {}Select: {} ".format(bc.CYLW, bc.CEND, bc.CBLU, bc.CEND)))
+        except Exception:
+            self.datingmenu()
+            return
+        if gselect == 5:
+            return
+        if not bi.search_string or gselect == 4:
+            bi.search_string = input("\n  [{}PROFILE{}] {}Target username: {} ".format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
+            if gselect == 4:
+                self.datingmenu()
+                return
+        bi.lookup = 'dating'
+        print()
+        try:
+            if gselect == 1:
+                DatingChecker().get_info(bi.search_string)
+                TinderGrabber().get_info(bi.search_string)
+            elif gselect == 2:
+                DatingChecker().get_info(bi.search_string)
+            elif gselect == 3:
+                TinderGrabber().get_info(bi.search_string)
+        except Exception:
+            pass
+        input("\nPress ENTER to continue")
+        self.datingmenu()
 
     # ─────────────────────────────── PLATE ────────────────────────────────
 

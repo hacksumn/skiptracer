@@ -14,6 +14,7 @@ from plugins.username_check import UsernameChecker
 from plugins.breach_check import BreachChecker
 from plugins.github_lookup import GitHubLookup
 from plugins.dating_check import DatingChecker
+from plugins.name_search import NameSearch
 from plugins.email_rep import EmailRepChecker
 from plugins.gravatar import GravatarLookup
 from plugins.ip_lookup import IPLookup
@@ -75,6 +76,11 @@ All modules use free public APIs or public-facing web sources.
 :: PLATE :: (format: ABC1234, then prompted for state)
   - NHTSA VIN Decode : Make, model, year, engine, fuel type [FREE gov API]
 
+:: PEOPLE :: (format: First Last)
+  - People Search: Spokeo — up to 30 records with full name, aliases, address,
+                   deep-link profile URL. Age/phone/criminal summary for top result.
+                   Optional state filter to narrow results. + GitHub name search.
+
 :: DATING :: (format: username)
   - Dating Check     : 38 platforms — OkCupid, POF, Hinge, Feeld, Badoo, Zoosk,
                        AFF, Ashley Madison, FetLife, Grindr, Scruff, Hornet, Reddit
@@ -96,7 +102,8 @@ All modules use free public APIs or public-facing web sources.
         print('\t[{}4{}] {}Domain/IP{}  - {}WHOIS, subdomains, IP geolocation + Shodan{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
         print('\t[{}5{}] {}Plate{}      - {}License plate / VIN decode{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
         print('\t[{}6{}] {}Dating{}     - {}Search 38 dating platforms by username{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
-        print('\t[{}7{}] {}Help{}       - {}Usage and module details{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}7{}] {}People{}     - {}Search by real name — address, age, aliases{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}8{}] {}Help{}       - {}Usage and module details{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
         print('\t[{}88{}] {}Report{}    - {}Generate DOCX report from session data{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
         print('\t[{}99{}] {}Exit{}      - {}Quit{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
         try:
@@ -108,7 +115,7 @@ All modules use free public APIs or public-facing web sources.
             sys.exit(0)
         dispatch = {1: self.emailmenu, 2: self.snmenu, 3: self.phonemenu,
                     4: self.domainmenu, 5: self.platemenu, 6: self.datingmenu,
-                    7: self.helpmenu, 88: self.repgen}
+                    7: self.peoplemenu, 8: self.helpmenu, 88: self.repgen}
         if gselect in dispatch:
             try:
                 dispatch[gselect]()
@@ -318,6 +325,43 @@ All modules use free public APIs or public-facing web sources.
             print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"Error: {}".format(e)+bc.CEND)
         input("\nPress ENTER to continue")
         self.domainmenu()
+
+    # ─────────────────────────────── PEOPLE ───────────────────────────────
+
+    def peoplemenu(self):
+        os.system('cls' if os.name == 'nt' else 'clear')
+        Logo().banner()
+        target = " — {}{}".format(bi.search_string, bc.CEND) if bi.search_string else ""
+        print(" [{}!{}] {}People search (by real name){}{}".format(bc.CYLW, bc.CEND, bc.CBLU, target, bc.CEND))
+        print('\t[{}1{}] {}Search{}             - {}Spokeo + GitHub by full name{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}2{}] {}Search + State{}      - {}Narrow results to a specific state{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}3{}] {}Reset Target{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
+        print('\t[{}4{}] {}Back{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
+        try:
+            gselect = int(input(" [{}!{}] {}Select: {} ".format(bc.CYLW, bc.CEND, bc.CBLU, bc.CEND)))
+        except Exception:
+            self.peoplemenu()
+            return
+        if gselect == 4:
+            return
+        if not bi.search_string or gselect == 3:
+            bi.search_string = input("\n  [{}PROFILE{}] {}Target full name (e.g. John Smith): {} ".format(
+                bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
+            if gselect == 3:
+                self.peoplemenu()
+                return
+        bi.lookup = 'people'
+        state = None
+        if gselect == 2:
+            state = input("  [{}!{}] {}State abbreviation (e.g. FL, TX) or Enter to skip: {} ".format(
+                bc.CYLW, bc.CEND, bc.CBLU, bc.CEND)).strip().upper() or None
+        print()
+        try:
+            NameSearch().get_info(bi.search_string, state=state)
+        except Exception as e:
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"Error: {}".format(e)+bc.CEND)
+        input("\nPress ENTER to continue")
+        self.peoplemenu()
 
     # ─────────────────────────────── DATING ───────────────────────────────
 

@@ -1,11 +1,21 @@
 from __future__ import absolute_import, print_function
 #
-# License plate lookup — faxvin.com for plate→VIN, NHTSA free API for VIN decode
-# NHTSA API: https://vpic.nhtsa.dot.gov/api/ (US Government, free, no key needed)
+# Vehicle lookup — NHTSA free government API (no key required)
+#
+# Reality of plate-to-VIN:
+#   Every free plate lookup site (faxvin, vindecoderz, etc.) is either:
+#     - JavaScript-gated (requires headless browser)
+#     - Cloudflare-blocked (403)
+#     - Dead (DNS fails / 404)
+#   Real plate-to-VIN lookup requires paid DMV API access (carmd, platescanner, etc.)
+#   OR the vehicle owner to supply the VIN themselves.
+#
+# What DOES work (free, no key, instant):
+#   NHTSA VIN Decoder  : full specs from any 17-char VIN
+#   NHTSA Model Search : all models for a given make + year
 #
 import re
 import requests
-from plugins.base import PageGrabber
 from plugins.colors import BodyColors as bc
 
 try:
@@ -13,27 +23,37 @@ try:
 except ImportError:
     import builtins as bi
 
-NHTSA_URL = 'https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/{}?format=json'
+NHTSA_DECODE_URL = 'https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/{}?format=json'
+NHTSA_MAKES_URL  = 'https://vpic.nhtsa.dot.gov/api/vehicles/getallmakes?format=json'
+NHTSA_MODELS_URL = 'https://vpic.nhtsa.dot.gov/api/vehicles/GetModelsForMakeYear/make/{}/modelyear/{}?format=json'
 
-# NHTSA fields we care about
 NHTSA_FIELDS = [
-    ('Make',            'Make'),
-    ('Model',           'Model'),
-    ('Model Year',      'ModelYear'),
-    ('Body Class',      'BodyClass'),
-    ('Vehicle Type',    'VehicleType'),
-    ('Drive Type',      'DriveType'),
-    ('Fuel Type',       'FuelTypePrimary'),
-    ('Engine Size',     'DisplacementL'),
-    ('Cylinders',       'EngineCylinders'),
-    ('Engine HP',       'EngineHP'),
-    ('Transmission',    'TransmissionStyle'),
-    ('Doors',           'Doors'),
-    ('Seats',           'SeatRows'),
-    ('Series',          'Series'),
-    ('Trim',            'Trim'),
-    ('Plant Country',   'PlantCountry'),
-    ('Manufacturer',    'Manufacturer'),
+    ('Make',           'Make'),
+    ('Model',          'Model'),
+    ('Year',           'ModelYear'),
+    ('Body Class',     'BodyClass'),
+    ('Vehicle Type',   'VehicleType'),
+    ('Drive Type',     'DriveType'),
+    ('Fuel Type',      'FuelTypePrimary'),
+    ('Engine (L)',     'DisplacementL'),
+    ('Cylinders',      'EngineCylinders'),
+    ('Horsepower',     'EngineHP'),
+    ('Transmission',   'TransmissionStyle'),
+    ('Doors',          'Doors'),
+    ('Seat Rows',      'SeatRows'),
+    ('Series',         'Series'),
+    ('Trim',           'Trim'),
+    ('Manufacturer',   'Manufacturer'),
+    ('Plant Country',  'PlantCountry'),
+    ('GVWR',           'GVWR'),
+    ('Brake System',   'BrakeSystemType'),
+    ('Steering',       'SteeringType'),
+    ('Wheelbase (in)', 'WheelBaseShort'),
+    ('ABS',            'ABS'),
+    ('Airbags',        'AirBagLocFront'),
+    ('NCAP Safety',    'RearAutomaticEmergencyBraking'),
+    ('Error Code',     'ErrorCode'),
+    ('Error Text',     'ErrorText'),
 ]
 
 US_STATES = [
@@ -43,84 +63,181 @@ US_STATES = [
     'TX','UT','VT','VA','WA','WV','WI','WY','DC',
 ]
 
+VIN_RE = re.compile(r'^[A-HJ-NPR-Z0-9]{17}$')
+
 
 def _decode_vin(vin):
-    """Decode a VIN using the free NHTSA API. Returns dict of vehicle data."""
+    """Decode a VIN using the NHTSA free API. Returns result dict."""
     try:
-        resp = requests.get(NHTSA_URL.format(vin), timeout=12)
+        resp = requests.get(NHTSA_DECODE_URL.format(vin), timeout=12)
         data = resp.json()
-        results = data.get('Results', [{}])[0]
-        return results
+        return data.get('Results', [{}])[0]
     except Exception:
         return {}
 
 
-def _find_vin_in_page(text):
-    """Extract a 17-character VIN from raw page text."""
-    matches = re.findall(r'\b[A-HJ-NPR-Z0-9]{17}\b', text)
-    return matches[0] if matches else None
+def _print_vehicle(vehicle, plate=None, state=None, vin=None):
+    """Print decoded vehicle fields."""
+    if plate:
+        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Plate:  "+bc.CEND+plate)
+    if state:
+        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"State:  "+bc.CEND+state)
+    if vin:
+        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"VIN:    "+bc.CEND+vin)
+    print()
+
+    result = {}
+    for label, key in NHTSA_FIELDS:
+        val = vehicle.get(key, '').strip()
+        if not val or val in ('Not Applicable', '0', ''):
+            continue
+        # Skip error fields unless there's actually an error
+        if key == 'ErrorCode' and val == '0':
+            continue
+        if key == 'ErrorText' and 'PASS' in val.upper():
+            continue
+        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED +
+              "{:<16}".format(label)+bc.CEND+val)
+        result[label.lower().replace(' ', '_')] = val
+
+    return result
 
 
-class VinGrabber(PageGrabber):
+class VinGrabber:
+
+    def __init__(self):
+        self.info_dict = {}
+
+    # ── Direct VIN decode ──────────────────────────────────────────────────────
+
+    def decode_vin(self, vin=None):
+        """Decode a VIN directly — prompts for VIN if not supplied."""
+        print("["+bc.CPRP+"?"+bc.CEND+"] "+bc.CCYN+"VIN Decoder (NHTSA)"+bc.CEND)
+
+        if not vin:
+            vin = input("  ["+bc.CRED+"!"+bc.CEND+"] "+bc.CYLW +
+                        "Enter 17-character VIN: "+bc.CEND).strip().upper()
+
+        if not VIN_RE.match(vin):
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW +
+                  "Invalid VIN format. Must be 17 characters (A-H, J-N, P-Z, 0-9).\n"+bc.CEND)
+            return
+
+        print("  ["+bc.CBLU+"~"+bc.CEND+"] "+bc.CYLW+"Querying NHTSA API..."+bc.CEND)
+        vehicle = _decode_vin(vin)
+
+        if not vehicle:
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"NHTSA returned no data.\n"+bc.CEND)
+            return
+
+        result = _print_vehicle(vehicle, vin=vin)
+        if not result:
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"NHTSA could not decode this VIN.\n"+bc.CEND)
+            return
+
+        self.info_dict.update({'vin': vin, **result})
+        try:
+            bi.outdata['plate_lookup'] = self.info_dict
+        except AttributeError:
+            pass
+        print()
+
+    # ── Plate + manual VIN fallback ───────────────────────────────────────────
+
     def get_info(self, plate):
+        """Plate lookup: automated sources are all blocked, falls back to manual VIN."""
         print("["+bc.CPRP+"?"+bc.CEND+"] "+bc.CCYN+"License Plate Lookup"+bc.CEND)
 
         while True:
             state = input("  ["+bc.CRED+"!"+bc.CEND+"] "+bc.CYLW +
-                          "Enter 2-letter state abbreviation [ex: FL, CA, TX]: " +
-                          bc.CEND).strip().upper()
+                          "State abbreviation [ex: FL, CA, TX]: "+bc.CEND).strip().upper()
             if state in US_STATES:
                 break
-            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"Invalid state. Use 2-letter abbreviation (e.g. FL)."+bc.CEND)
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"Invalid state."+bc.CEND)
 
         plate = str(plate).upper().strip()
-        print("  ["+bc.CBLU+"~"+bc.CEND+"] "+bc.CYLW+"Searching plate {} / {}...".format(plate, state)+bc.CEND)
+        print()
+        print("  ["+bc.CYLW+"!"+bc.CEND+"] "+bc.CRED+"Plate: "+bc.CEND+plate+" / "+state)
+        print()
+        print("  ["+bc.CBLU+"i"+bc.CEND+"] "+bc.CYLW +
+              "Plate-to-VIN requires paid DMV API access (carmd.com, platescanner.com)"+bc.CEND)
+        print("  ["+bc.CBLU+"i"+bc.CEND+"] "+bc.CYLW +
+              "All free plate lookup sites are JavaScript-gated or Cloudflare-blocked."+bc.CEND)
+        print("  ["+bc.CBLU+"i"+bc.CEND+"] "+bc.CYLW +
+              "If you have the VIN (found on dashboard, door jamb, or title), enter it below."+bc.CEND)
+        print()
 
-        vin = None
+        vin = input("  ["+bc.CRED+"?"+bc.CEND+"] "+bc.CYLW +
+                    "Enter VIN to decode (or press Enter to cancel): "+bc.CEND).strip().upper()
 
-        # --- Attempt 1: faxvin.com ---
-        try:
-            faxvin_url = 'https://www.faxvin.com/license-plate-lookup/result?plate={}&state={}'.format(plate, state)
-            source = self.get_source(faxvin_url)
-            if source:
-                vin = _find_vin_in_page(source)
-                if vin:
-                    print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"VIN extracted: "+bc.CEND+vin)
-        except Exception:
-            pass
-
-        # --- Attempt 2: ask user to supply VIN manually ---
         if not vin:
-            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW +
-                  "Automated VIN lookup unavailable (sites require JavaScript)." + bc.CEND)
-            manual = input("  ["+bc.CRED+"?"+bc.CEND+"] "+bc.CYLW +
-                           "Enter VIN manually to decode via NHTSA (or press Enter to skip): " +
-                           bc.CEND).strip().upper()
-            if manual and len(manual) == 17:
-                vin = manual
-            else:
-                print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"No VIN provided. Skipping decode.\n"+bc.CEND)
-                return
-
-        # --- Decode VIN via NHTSA free government API ---
-        print("  ["+bc.CBLU+"~"+bc.CEND+"] "+bc.CYLW+"Decoding VIN via NHTSA API (free)..."+bc.CEND)
-        vehicle = _decode_vin(vin)
-
-        if not vehicle or vehicle.get('ErrorCode', '0') != '0':
-            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"NHTSA could not decode this VIN.\n"+bc.CEND)
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"No VIN entered.\n"+bc.CEND)
             return
 
-        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"Plate: "+bc.CEND+plate)
-        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"State: "+bc.CEND+state)
-        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"VIN:   "+bc.CEND+vin)
+        if not VIN_RE.match(vin):
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW +
+                  "Invalid VIN — must be exactly 17 characters.\n"+bc.CEND)
+            return
 
-        result = {'plate': plate, 'state': state, 'vin': vin}
-        for label, key in NHTSA_FIELDS:
-            val = vehicle.get(key, '').strip()
-            if val and val != 'Not Applicable':
-                print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED+"{}: ".format(label)+bc.CEND+val)
-                result[label.lower().replace(' ', '_')] = val
+        print("  ["+bc.CBLU+"~"+bc.CEND+"] "+bc.CYLW+"Decoding via NHTSA API..."+bc.CEND)
+        vehicle = _decode_vin(vin)
 
-        self.info_dict.update(result)
-        bi.outdata['plate_lookup'] = self.info_dict
+        if not vehicle:
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"NHTSA returned no data.\n"+bc.CEND)
+            return
+
+        result = _print_vehicle(vehicle, plate=plate, state=state, vin=vin)
+        self.info_dict.update({'plate': plate, 'state': state, 'vin': vin, **result})
+        try:
+            bi.outdata['plate_lookup'] = self.info_dict
+        except AttributeError:
+            pass
+        print()
+
+    # ── Model search by make + year ───────────────────────────────────────────
+
+    def search_models(self):
+        """List all NHTSA-registered models for a given make and year."""
+        print("["+bc.CPRP+"?"+bc.CEND+"] "+bc.CCYN+"Vehicle Model Search (NHTSA)"+bc.CEND)
+
+        make = input("  ["+bc.CRED+"!"+bc.CEND+"] "+bc.CYLW +
+                     "Enter vehicle make (e.g. Ford, Toyota, BMW): "+bc.CEND).strip()
+        year = input("  ["+bc.CRED+"!"+bc.CEND+"] "+bc.CYLW +
+                     "Enter model year (e.g. 2021): "+bc.CEND).strip()
+
+        if not make or not year.isdigit():
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"Invalid input.\n"+bc.CEND)
+            return
+
+        print("  ["+bc.CBLU+"~"+bc.CEND+"] "+bc.CYLW +
+              "Querying NHTSA for {} {}...".format(year, make)+bc.CEND)
+
+        try:
+            resp = requests.get(
+                NHTSA_MODELS_URL.format(requests.utils.quote(make), year),
+                timeout=10
+            )
+            data = resp.json()
+            models = data.get('Results', [])
+        except Exception as e:
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"Request failed: {}\n".format(e)+bc.CEND)
+            return
+
+        if not models:
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW +
+                  "No models found for {} {}.\n".format(year, make)+bc.CEND)
+            return
+
+        print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CRED +
+              "Found {} model(s) for {} {}:\n".format(len(models), year, make.upper())+bc.CEND)
+        for m in models:
+            name = m.get('Model_Name', '')
+            mid  = m.get('Model_ID', '')
+            print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CYLW+name+bc.CEND +
+                  (bc.CBLU+" (ID: {})".format(mid)+bc.CEND if mid else ''))
+
+        try:
+            bi.outdata['model_search'] = {'make': make, 'year': year, 'models': models}
+        except AttributeError:
+            pass
         print()

@@ -407,29 +407,33 @@ All modules use free public APIs or public-facing web sources.
     def platemenu(self):
         os.system('cls' if os.name == 'nt' else 'clear')
         Logo().banner()
-        target = " — {}{}".format(bi.search_string, bc.CEND) if bi.search_string else ""
-        print(" [{}!{}] {}Plate / VIN lookup{}{}".format(bc.CYLW, bc.CEND, bc.CBLU, target, bc.CEND))
-        print('\t[{}1{}] {}Plate Lookup{}      - {}Plate + NHTSA VIN decode (free government API){}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
-        print('\t[{}2{}] {}Reset Target{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
-        print('\t[{}3{}] {}Back{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
+        print(" [{}!{}] {}Vehicle / VIN lookup{}".format(bc.CYLW, bc.CEND, bc.CBLU, bc.CEND))
+        print('\t[{}1{}] {}Decode VIN{}         - {}Enter any VIN -> full specs via NHTSA [free]{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}2{}] {}Plate + VIN{}         - {}Enter plate+state, then VIN to decode{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}3{}] {}Model Search{}        - {}All models for a make + year via NHTSA [free]{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}4{}] {}Back{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
+        print()
+        print('\t'+bc.CBLU+'Note: '+bc.CEND+bc.CYLW+'Plate-to-VIN requires paid DMV API access. All free sites are'+bc.CEND)
+        print('\t'+bc.CYLW+'      JavaScript-gated or Cloudflare-blocked. The VIN is printed on'+bc.CEND)
+        print('\t'+bc.CYLW+'      the dashboard (driver side), door jamb sticker, or vehicle title.'+bc.CEND)
         try:
-            gselect = int(input(" [{}!{}] {}Select: {} ".format(bc.CYLW, bc.CEND, bc.CBLU, bc.CEND)))
+            gselect = int(input("\n [{}!{}] {}Select: {} ".format(bc.CYLW, bc.CEND, bc.CBLU, bc.CEND)))
         except Exception:
             self.platemenu()
             return
-        if gselect == 3:
+        if gselect == 4:
             return
-        if not bi.search_string or gselect == 2:
-            bi.search_string = input("\n  [{}PROFILE{}] {}Target plate number: {} ".format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
-            if gselect == 2:
-                self.platemenu()
-                return
         bi.lookup = 'plate'
         print()
         try:
             if gselect == 1:
-                VinGrabber().get_info(bi.search_string)
-        except Exception:
-            pass
+                VinGrabber().decode_vin()
+            elif gselect == 2:
+                plate = input("  [{}!{}] {}Enter plate number: {} ".format(bc.CYLW, bc.CEND, bc.CBLU, bc.CEND)).strip()
+                VinGrabber().get_info(plate)
+            elif gselect == 3:
+                VinGrabber().search_models()
+        except Exception as e:
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"Error: {}".format(e)+bc.CEND)
         input("\nPress ENTER to continue")
         self.platemenu()

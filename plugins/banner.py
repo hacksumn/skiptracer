@@ -19,16 +19,20 @@ class Logo:
 
     def banner(self):
         _safe_print("")
-        _safe_print("\t\t.▄▄ · ▄ •▄ ▪   ▄▄▄·▄▄▄▄▄▄▄▄   ▄▄▄·  ▄▄· ▄▄▄ .▄▄▄  ")
-        _safe_print("\t\t▐█ ▀. █▌▄▌▪██ ▐█ ▄█•██  ▀▄ █·▐█ ▀█ ▐█ ▌▪▀▄.▀·▀▄ █·")
-        _safe_print("\t\t▄▀▀▀█▄▐▀▀▄·▐█· ██▀· ▐█.▪▐▀▀▄ ▄█▀▀█ ██ ▄▄▐▀▀▪▄▐▀▀▄ ")
-        _safe_print("\t\t▐█▄▪▐█▐█.█▌▐█▌▐█▪·• ▐█▌·▐█•█▌▐█ ▪▐▌▐███▌▐█▄▄▌▐█•█▌")
+        _safe_print(bc.CCYN + "\t\t  _____ _    _       _                       " + bc.CEND)
+        _safe_print(bc.CCYN + "\t\t / ____| |  (_)     | |                      " + bc.CEND)
+        _safe_print(bc.CCYN + "\t\t| (___ | | ___ _ __ | |_ _ __ __ _  ___ ___  " + bc.CEND)
+        _safe_print(bc.CCYN + "\t\t \\___ \\| |/ / | '_ \\| __| '__/ _` |/ __/ _ \\ " + bc.CEND)
+        _safe_print(bc.CCYN + "\t\t ____) |   <| | |_) | |_| | | (_| | (_|  __/ " + bc.CEND)
+        _safe_print(bc.CCYN + "\t\t|_____/|_|\\_\\_| .__/ \\__|_|  \\__,_|\\___\\___| " + bc.CEND)
+        _safe_print(bc.CCYN + "\t\t              | |                            " + bc.CEND)
+        _safe_print(bc.CCYN + "\t\t              |_|                            " + bc.CEND)
         _safe_print(
-            ("\t\t       {},.-~*´¨¯¨`*·~-.¸{}-({}by{})-{},.-~*´¨¯¨`*·~-.¸{} \n").format(
+            ("\t\t       {},.-~*´¨¯¨`*·~-.¸{}-({}OSINT Framework{})-{},.-~*´¨¯¨`*·~-.¸{} \n").format(
                 bc.CRED, bc.CYLW, bc.CCYN, bc.CYLW, bc.CRED, bc.CEND))
         _safe_print(
-            ("\t\t\t      {}skiptr4cer {}reloaded{}").format(
+            ("\t\t\t      {}skiptracer {}modernized{}").format(
                 bc.CBLU, bc.CRED, bc.CEND))
         _safe_print(
-            ("\t\t\t      {}  https://github.com/84KaliPleXon3/skiptracer {}\n").format(
+            ("\t\t\t      {}  https://github.com/hacksumn/skiptracer {}\n").format(
                 bc.CYLW, bc.CEND))

@@ -24,7 +24,7 @@ class SubDomainGrabber(PageGrabber):  # crt.sh scraper for Certificate Transpare
             print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"No results were found ...\n"+bc.CEND)
             return
         try:
-            jsondata = json.loads('[{}]'.format(req.text.replace('}{', '},{')))
+            jsondata = json.loads(req.text)
         except Exception as e:
             print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"Failed to parse response: {}\n".format(e)+bc.CEND)
             return

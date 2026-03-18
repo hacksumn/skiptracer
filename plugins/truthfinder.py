@@ -50,7 +50,7 @@ class TruthFinderGrabber(PageGrabber):
 
             if phonere.findall(information):
                 try:
-                    self.url = 'https://www.truepeoplesearch.com/results?phoneno={}'.format(makephone(information))
+                    self.url = 'https://www.truthfinder.com/results/?phoneno={}'.format(makephone(information))
                 except Exception:
                     pass
 

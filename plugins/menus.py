@@ -3,8 +3,6 @@
 from __future__ import print_function
 from plugins.banner import Logo
 from plugins.who_call_id import WhoCallIdGrabber
-from plugins.advance_background_checks import AdvanceBackgroundGrabber
-from plugins.myspace import MySpaceGrabber
 from plugins.linkedin import LinkedInGrabber
 from plugins.haveibeenpwned import HaveIBeenPwwnedGrabber
 from plugins.plate import VinGrabber
@@ -16,6 +14,10 @@ from plugins.username_check import UsernameChecker
 from plugins.breach_check import BreachChecker
 from plugins.github_lookup import GitHubLookup
 from plugins.dating_check import DatingChecker
+from plugins.email_rep import EmailRepChecker
+from plugins.gravatar import GravatarLookup
+from plugins.ip_lookup import IPLookup
+from plugins.whois_lookup import WhoisLookup
 import json
 import os
 import sys
@@ -43,56 +45,40 @@ class menus():
             Logo().banner()
             print("\t[INFORMATION]::")
             print("""
-This application is designed to query and parse 3rd party services in an automated fashion
-to increase productivity while conducting a background investigation.
+SkipTracer — passive OSINT reconnaissance toolkit.
+All modules use free public APIs or public-facing web sources.
 
-\tEmail:      Investigate with a known email address
-\tUsername:   Investigate with a known screen name / alias
-\tPhone:      Investigate with a known US phone number
-\tDomain:     Enumerate subdomains via Certificate Transparency logs
-\tPlate:      Decode a license plate / VIN via NHTSA free API
+:: EMAIL ::  (format: user@domain.tld)
+  - EmailRep.io      : Reputation, breach status, spam/blacklist, social profiles,
+                       first/last seen, spoofability, deliverability [FREE, no key]
+  - Breach Check     : LeakCheck.io + XposedOrNot dual breach lookup [FREE, no key]
+  - HaveIBeenPwned   : HIBP v3 breach check [requires free API key]
+  - Gravatar         : Email -> name, bio, location, linked accounts [FREE, no key]
+  - GitHub Search    : Find GitHub accounts linked to an email [FREE, no key]
+  - LinkedIn         : Profile lookup [requires LinkedIn credentials]
 
-:: EMAIL ::
-  Format: username@domain.tld
-  Modules:
-    - Breach Check    : LeakCheck.io + XposedOrNot (no API key needed)
-    - HaveIBeenPwned  : HIBP v3 API (requires free API key)
-    - GitHub Search   : Find GitHub accounts linked to email
-    - LinkedIn        : Requires LinkedIn credentials
-    - Myspace         : Myspace account lookup
+:: USERNAME :: (format: Ac1dBurn)
+  - Username Check   : 35+ platforms concurrently (GitHub, Reddit, Instagram,
+                       TikTok, Twitter, Twitch, Telegram, Steam, Spotify...) [FREE]
+  - GitHub           : Full profile — repos, bio, followers, company [FREE, no key]
+  - Tinder           : Tinder profile lookup [requires phone token]
 
-:: USERNAME ::
-  Format: Ac1dBurn
-  Modules:
-    - Username Check  : Checks 35+ platforms concurrently
-    - Tinder          : Tinder profile lookup
-    - GitHub          : Direct GitHub user lookup
+:: PHONE :: (format: 4075551234)
+  - WhoCalld         : Reverse phone — carrier, location, caller ID [FREE, no key]
 
-:: PHONE ::
-  Format: 4075551234
-  Modules:
-    - WhoCalld        : Reverse phone lookup
+:: DOMAIN / IP :: (format: example.com or 1.2.3.4)
+  - WHOIS / RDAP     : Registrant, registrar, dates, nameservers [FREE, no key]
+  - Subdomains (crt) : Certificate Transparency subdomain enum [FREE, no key]
+  - IP Lookup        : Geolocation (country/city/ISP/ASN) + Shodan open ports,
+                       CVEs, hostnames, tags [FREE, no key]
 
-:: DOMAIN ::
-  Format: example.com
-  Modules:
-    - crt.sh          : Subdomain enumeration via Certificate Transparency
+:: PLATE :: (format: ABC1234, then prompted for state)
+  - NHTSA VIN Decode : Make, model, year, engine, fuel type [FREE gov API]
 
-:: PLATE ::
-  Format: ABC1234  (then prompted for state)
-  Modules:
-    - NHTSA VIN Decode: Free government API — make, model, year, engine, etc.
-
-:: DATING ::
-  Format: username (the alias used on the target platform)
-  Modules:
-    - Dating Check: Searches 28+ platforms concurrently — OkCupid, POF, Match,
-      eHarmony, Hinge, Feeld, Badoo, Zoosk, AdultFriendFinder, Ashley Madison,
-      FetLife, Seeking, Grindr, Scruff, Her, BeNaughty, MeetMe, Tagged, Reddit,
-      SilverSingles, OurTime, Skout, Yubo, Coffee Meets Bagel, and more
-    - Tinder: Tinder profile lookup (use Username menu)
-  Note: Tinder, Bumble, 3Fun, Hily, Happn are mobile-only apps with no public
-        profile URLs — they cannot be checked by username lookup.
+:: DATING :: (format: username)
+  - Dating Check     : 38 platforms — OkCupid, POF, Hinge, Feeld, Badoo, Zoosk,
+                       AFF, Ashley Madison, FetLife, Grindr, Scruff, Hornet, Reddit
+                       and more. Tinder/Bumble/3Fun are mobile-only. [FREE, no key]
 """)
             input("\nPress ENTER to continue")
             self.intromenu()
@@ -107,9 +93,9 @@ to increase productivity while conducting a background investigation.
         print('\t[{}1{}] {}Email{}      - {}Search by email address{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
         print('\t[{}2{}] {}Username{}   - {}Search by screen name / alias{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
         print('\t[{}3{}] {}Phone{}      - {}Search by telephone number{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
-        print('\t[{}4{}] {}Domain{}     - {}Enumerate subdomains{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}4{}] {}Domain/IP{}  - {}WHOIS, subdomains, IP geolocation + Shodan{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
         print('\t[{}5{}] {}Plate{}      - {}License plate / VIN decode{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
-        print('\t[{}6{}] {}Dating{}     - {}Search dating platforms by username{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}6{}] {}Dating{}     - {}Search 38 dating platforms by username{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
         print('\t[{}7{}] {}Help{}       - {}Usage and module details{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
         print('\t[{}88{}] {}Report{}    - {}Generate DOCX report from session data{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
         print('\t[{}99{}] {}Exit{}      - {}Quit{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
@@ -167,46 +153,50 @@ to increase productivity while conducting a background investigation.
         target = " — {}{}".format(bi.search_string, bc.CEND) if bi.search_string else ""
         print(" [{}!{}] {}Email search menu{}{}".format(bc.CYLW, bc.CEND, bc.CBLU, target, bc.CEND))
         print('\t[{}1{}] {}All{}               - {}Run all email modules{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
-        print('\t[{}2{}] {}Breach Check{}       - {}LeakCheck.io + XposedOrNot (free, no key){}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
-        print('\t[{}3{}] {}HaveIBeenPwned{}     - {}HIBP v3 (requires API key){}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
-        print('\t[{}4{}] {}GitHub Search{}      - {}Find GitHub accounts linked to email{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
-        print('\t[{}5{}] {}Myspace{}            - {}Check for Myspace account{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
-        print('\t[{}6{}] {}LinkedIn{}           - {}LinkedIn lookup (requires credentials){}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
-        print('\t[{}7{}] {}Reset Target{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
-        print('\t[{}8{}] {}Back{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
+        print('\t[{}2{}] {}EmailRep{}           - {}Reputation, breach, social profiles, spam [free]{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}3{}] {}Breach Check{}       - {}LeakCheck.io + XposedOrNot [free, no key]{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}4{}] {}Gravatar{}           - {}Email -> name, bio, linked accounts [free]{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}5{}] {}GitHub Search{}      - {}Find GitHub accounts linked to email [free]{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}6{}] {}HaveIBeenPwned{}     - {}HIBP v3 (requires free API key){}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}7{}] {}LinkedIn{}           - {}LinkedIn lookup (requires credentials){}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}8{}] {}Reset Target{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
+        print('\t[{}9{}] {}Back{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
         try:
             gselect = int(input(" [{}!{}] {}Select: {} ".format(bc.CYLW, bc.CEND, bc.CBLU, bc.CEND)))
         except Exception:
             self.emailmenu()
             return
-        if gselect == 8:
+        if gselect == 9:
             return
-        if not bi.search_string or gselect == 7:
+        if not bi.search_string or gselect == 8:
             bi.search_string = input("\n  [{}PROFILE{}] {}Target email: {} ".format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
-            if gselect == 7:
+            if gselect == 8:
                 self.emailmenu()
                 return
         bi.lookup = 'email'
         print()
         try:
             if gselect == 1:
+                EmailRepChecker().get_info(bi.search_string)
                 BreachChecker().get_info(bi.search_string)
-                HaveIBeenPwwnedGrabber().get_info(bi.search_string)
+                GravatarLookup().get_info(bi.search_string)
                 GitHubLookup().get_info_by_email(bi.search_string)
-                MySpaceGrabber().get_info(bi.search_string)
+                HaveIBeenPwwnedGrabber().get_info(bi.search_string)
                 LinkedInGrabber().get_info(bi.search_string)
             elif gselect == 2:
-                BreachChecker().get_info(bi.search_string)
+                EmailRepChecker().get_info(bi.search_string)
             elif gselect == 3:
-                HaveIBeenPwwnedGrabber().get_info(bi.search_string)
+                BreachChecker().get_info(bi.search_string)
             elif gselect == 4:
-                GitHubLookup().get_info_by_email(bi.search_string)
+                GravatarLookup().get_info(bi.search_string)
             elif gselect == 5:
-                MySpaceGrabber().get_info(bi.search_string)
+                GitHubLookup().get_info_by_email(bi.search_string)
             elif gselect == 6:
+                HaveIBeenPwwnedGrabber().get_info(bi.search_string)
+            elif gselect == 7:
                 LinkedInGrabber().get_info(bi.search_string)
-        except Exception:
-            pass
+        except Exception as e:
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"Error: {}".format(e)+bc.CEND)
         input("\nPress ENTER to continue")
         self.emailmenu()
 
@@ -292,30 +282,40 @@ to increase productivity while conducting a background investigation.
         os.system('cls' if os.name == 'nt' else 'clear')
         Logo().banner()
         target = " — {}{}".format(bi.search_string, bc.CEND) if bi.search_string else ""
-        print(" [{}!{}] {}Domain search menu{}{}".format(bc.CYLW, bc.CEND, bc.CBLU, target, bc.CEND))
-        print('\t[{}1{}] {}All{}               - {}Run all domain modules{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
-        print('\t[{}2{}] {}Subdomain (crt.sh){}  - {}Certificate Transparency subdomain enum{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
-        print('\t[{}3{}] {}Reset Target{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
-        print('\t[{}4{}] {}Back{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
+        print(" [{}!{}] {}Domain / IP search menu{}{}".format(bc.CYLW, bc.CEND, bc.CBLU, target, bc.CEND))
+        print('\t[{}1{}] {}All{}               - {}WHOIS + subdomains + IP lookup{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}2{}] {}WHOIS / RDAP{}       - {}Registrant, registrar, dates, nameservers{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}3{}] {}Subdomains (crt.sh){} - {}Certificate Transparency subdomain enum{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}4{}] {}IP Lookup{}          - {}Geolocation + Shodan open ports/CVEs/hostnames{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND, bc.CYLW, bc.CEND))
+        print('\t[{}5{}] {}Reset Target{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
+        print('\t[{}6{}] {}Back{}'.format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
         try:
             gselect = int(input(" [{}!{}] {}Select: {} ".format(bc.CYLW, bc.CEND, bc.CBLU, bc.CEND)))
         except Exception:
             self.domainmenu()
             return
-        if gselect == 4:
+        if gselect == 6:
             return
-        if not bi.search_string or gselect == 3:
-            bi.search_string = input("\n  [{}PROFILE{}] {}Target domain (e.g. example.com): {} ".format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
-            if gselect == 3:
+        if not bi.search_string or gselect == 5:
+            bi.search_string = input("\n  [{}PROFILE{}] {}Target domain or IP: {} ".format(bc.CBLU, bc.CEND, bc.CRED, bc.CEND))
+            if gselect == 5:
                 self.domainmenu()
                 return
         bi.lookup = 'domain'
         print()
         try:
-            if gselect in [1, 2]:
+            if gselect == 1:
+                WhoisLookup().get_info(bi.search_string)
                 SubDomainGrabber().get_info(bi.search_string)
-        except Exception:
-            pass
+                IPLookup().get_info(bi.search_string)
+            elif gselect == 2:
+                WhoisLookup().get_info(bi.search_string)
+            elif gselect == 3:
+                SubDomainGrabber().get_info(bi.search_string)
+            elif gselect == 4:
+                IPLookup().get_info(bi.search_string)
+        except Exception as e:
+            print("  ["+bc.CRED+"X"+bc.CEND+"] "+bc.CYLW+"Error: {}".format(e)+bc.CEND)
         input("\nPress ENTER to continue")
         self.domainmenu()
 

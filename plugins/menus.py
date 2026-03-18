@@ -119,7 +119,7 @@ All modules use free public APIs or public-facing web sources.
     def repgen(self):
         try:
             ReportGenerator().newdoc()
-            ReportGenerator().addtitle('SkipTracer Report')
+            ReportGenerator().addtitle("Runnin' Ops Report")
             for header in bi.outdata.keys():
                 ReportGenerator().addheader(str(header), 1)
                 def sorttype(feed):
@@ -140,8 +140,8 @@ All modules use free public APIs or public-facing web sources.
                     except Exception as e:
                         print("Key failed: %s" % e)
                 sorttype(bi.outdata[header])
-            ReportGenerator().savefile('./skiptracer.docx')
-            print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CYLW+"Report saved: ./skiptracer.docx\n"+bc.CEND)
+            ReportGenerator().savefile('./runninops.docx')
+            print("  ["+bc.CGRN+"+"+bc.CEND+"] "+bc.CYLW+"Report saved: ./runninops.docx\n"+bc.CEND)
         except Exception as e:
             print("Report generation failed: %s" % e)
 

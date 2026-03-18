@@ -19,20 +19,19 @@ class Logo:
 
     def banner(self):
         _safe_print("")
-        _safe_print(bc.CCYN + "\t\t  _____ _    _       _                       " + bc.CEND)
-        _safe_print(bc.CCYN + "\t\t / ____| |  (_)     | |                      " + bc.CEND)
-        _safe_print(bc.CCYN + "\t\t| (___ | | ___ _ __ | |_ _ __ __ _  ___ ___  " + bc.CEND)
-        _safe_print(bc.CCYN + "\t\t \\___ \\| |/ / | '_ \\| __| '__/ _` |/ __/ _ \\ " + bc.CEND)
-        _safe_print(bc.CCYN + "\t\t ____) |   <| | |_) | |_| | | (_| | (_|  __/ " + bc.CEND)
-        _safe_print(bc.CCYN + "\t\t|_____/|_|\\_\\_| .__/ \\__|_|  \\__,_|\\___\\___| " + bc.CEND)
-        _safe_print(bc.CCYN + "\t\t              | |                            " + bc.CEND)
-        _safe_print(bc.CCYN + "\t\t              |_|                            " + bc.CEND)
+        _safe_print(bc.CCYN + "    ____                    _          ____            " + bc.CEND)
+        _safe_print(bc.CCYN + "   / __ \\__  ______  ____  (_)___     / __ \\____  _____" + bc.CEND)
+        _safe_print(bc.CCYN + "  / /_/ / / / / __ \\/ __ \\/ / __ \\   / / / / __ \\/ ___/" + bc.CEND)
+        _safe_print(bc.CCYN + " / _, _/ /_/ / / / / / / / / / / /  / /_/ / /_/ (__  ) " + bc.CEND)
+        _safe_print(bc.CCYN + "/_/ |_|\\__,_/_/ /_/_/ /_/_/_/ /_/   \\____/ .___/____/  " + bc.CEND)
+        _safe_print(bc.CCYN + "                                         /_/            " + bc.CEND)
+        _safe_print("")
         _safe_print(
-            ("\t\t       {},.-~*´¨¯¨`*·~-.¸{}-({}OSINT Framework{})-{},.-~*´¨¯¨`*·~-.¸{} \n").format(
-                bc.CRED, bc.CYLW, bc.CCYN, bc.CYLW, bc.CRED, bc.CEND))
+            "\t   {},.-~*`*·~-.¸{}  {}Runnin' Ops{}  {},.-~*`*·~-.¸{}".format(
+                bc.CRED, bc.CEND, bc.CCYN, bc.CEND, bc.CRED, bc.CEND))
         _safe_print(
-            ("\t\t\t      {}skiptracer {}modernized{}").format(
-                bc.CBLU, bc.CRED, bc.CEND))
+            "\t\t   {}OSINT Framework  |  by {}Jake Palmer{}".format(
+                bc.CYLW, bc.CGRN, bc.CEND))
         _safe_print(
-            ("\t\t\t      {}  https://github.com/hacksumn/skiptracer {}\n").format(
-                bc.CYLW, bc.CEND))
+            "\t\t   {}https://github.com/hacksumn/skiptracer{}\n".format(
+                bc.CBLU, bc.CEND))

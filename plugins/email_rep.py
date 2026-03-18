@@ -13,7 +13,7 @@ except ImportError:
     import builtins as bi
 
 HEADERS = {
-    'User-Agent': 'skiptracer-osint/2.0',
+    'User-Agent': 'runninops-osint/1.0',
     'Accept': 'application/json',
 }
 
